@@ -5,6 +5,8 @@ import (
 	"fullcycle-auction_go/configuration/logger"
 	"fullcycle-auction_go/internal/entity/auction_entity"
 	"fullcycle-auction_go/internal/internal_error"
+	"os"
+	"time"
 
 	"go.mongodb.org/mongo-driver/mongo"
 )
@@ -19,12 +21,14 @@ type AuctionEntityMongo struct {
 	Timestamp   int64                           `bson:"timestamp"`
 }
 type AuctionRepository struct {
-	Collection *mongo.Collection
+	Collection      *mongo.Collection
+	auctionDuration time.Duration
 }
 
 func NewAuctionRepository(database *mongo.Database) *AuctionRepository {
 	return &AuctionRepository{
-		Collection: database.Collection("auctions"),
+		Collection:      database.Collection("auctions"),
+		auctionDuration: getAuctionDuration(),
 	}
 }
 
@@ -46,5 +50,25 @@ func (ar *AuctionRepository) CreateAuction(
 		return internal_error.NewInternalServerError("Error trying to insert auction")
 	}
 
+	go ar.triggerAuctionDuration(ctx)
+
 	return nil
+}
+
+func getAuctionDuration() time.Duration {
+	auctionDuration := os.Getenv("AUCTION_DURATION")
+	duration, err := time.ParseDuration(auctionDuration)
+	if err != nil {
+		return time.Minute * 20
+	}
+
+	return duration
+}
+
+func (ar *AuctionRepository) triggerAuctionDuration(ctx context.Context) {
+	ctx, cancel := context.WithTimeout(ctx, ar.auctionDuration)
+	defer cancel()
+
+	<-ctx.Done()
+	// fazer o update
 }

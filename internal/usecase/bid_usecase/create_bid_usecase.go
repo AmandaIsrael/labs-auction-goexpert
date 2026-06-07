@@ -4,6 +4,7 @@ import (
 	"context"
 	"fullcycle-auction_go/configuration/logger"
 	"fullcycle-auction_go/internal/entity/bid_entity"
+	"fullcycle-auction_go/internal/entity/user_entity"
 	"fullcycle-auction_go/internal/internal_error"
 	"os"
 	"strconv"
@@ -25,7 +26,8 @@ type BidOutputDTO struct {
 }
 
 type BidUseCase struct {
-	BidRepository bid_entity.BidEntityRepository
+	BidRepository  bid_entity.BidEntityRepository
+	UserRepository user_entity.UserRepositoryInterface
 
 	timer               *time.Timer
 	maxBatchSize        int
@@ -33,12 +35,15 @@ type BidUseCase struct {
 	bidChannel          chan bid_entity.Bid
 }
 
-func NewBidUseCase(bidRepository bid_entity.BidEntityRepository) BidUseCaseInterface {
+func NewBidUseCase(
+	bidRepository bid_entity.BidEntityRepository,
+	userRepository user_entity.UserRepositoryInterface) BidUseCaseInterface {
 	maxSizeInterval := getMaxBatchSizeInterval()
 	maxBatchSize := getMaxBatchSize()
 
 	bidUseCase := &BidUseCase{
 		BidRepository:       bidRepository,
+		UserRepository:      userRepository,
 		maxBatchSize:        maxBatchSize,
 		batchInsertInterval: maxSizeInterval,
 		timer:               time.NewTimer(maxSizeInterval),
@@ -107,6 +112,11 @@ func (bu *BidUseCase) CreateBid(
 
 	bidEntity, err := bid_entity.CreateBid(bidInputDTO.UserId, bidInputDTO.AuctionId, bidInputDTO.Amount)
 	if err != nil {
+		return err
+	}
+
+	if _, err := bu.UserRepository.FindUserById(ctx, bidInputDTO.UserId); err != nil {
+		logger.Error("Error trying to validate bid user existence", err)
 		return err
 	}
 
