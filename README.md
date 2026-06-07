@@ -72,9 +72,8 @@ Configuradas em `cmd/auction/.env` (carregadas pelo Docker Compose).
 
 - `CreateAuction` insere o leilão e dispara `go ar.scheduleAuctionClose(id)` (fire-and-forget,
   **não bloqueia** a requisição).
-- `scheduleAuctionClose` usa um `time.NewTimer(AUCTION_DURATION)` e aguarda o canal `timer.C`.
-- `closeAuction` faz o `UpdateOne` setando `status = Completed`, usando um **contexto novo**
-  (não o que mediu o tempo).
+- `scheduleAuctionClose` usa um `time.NewTimer(AUCTION_DURATION)`, aguarda o canal `timer.C` e,
+  ao expirar, chama `UpdateAuctionStatus` (em `update_auction.go`) com um **contexto novo** para setar `status = Completed`.
 
 ## Testes
 
